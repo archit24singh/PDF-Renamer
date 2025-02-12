@@ -46,6 +46,8 @@ def extract_info_from_pdf(file_stream):
         We extract only the year.
       - Two phone numbers appear. We ignore the first phone number and use the full phone
         number from the second phone number.
+        If there is no distinct second phone number (i.e. only one unique phone number exists),
+        the function returns (None, None, None) so that the file is skipped.
     
     Returns:
         A tuple (lastname, birth_year, full_phone) if all are found; otherwise, (None, None, None).
@@ -81,12 +83,16 @@ def extract_info_from_pdf(file_stream):
     if dob:
         birth_year = dob.split('/')[-1]
 
-    # --- Extract Phone Number (using the second occurrence) ---
+    # --- Extract Phone Numbers ---
+    # Find phone numbers in common formats (e.g., 281-694-5986, (832)946-3105)
     phone_matches = re.findall(r'(\(?\d{3}\)?[-\s]?\d{3}[-\s]?\d{4})', text)
+    # Remove duplicate phone numbers (preserving order)
+    phone_matches = list(dict.fromkeys(phone_matches))
     if len(phone_matches) >= 2:
         phone_raw = phone_matches[1]
         full_phone = re.sub(r'\D', '', phone_raw)
     else:
+        print("Not enough distinct phone numbers found; skipping file.")
         full_phone = None
 
     print("Extracted Data:")
