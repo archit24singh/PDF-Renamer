@@ -111,6 +111,7 @@ def extract_info_from_pdf(file_stream):
 def upload_files():
     if request.method == "POST":
         log_messages = []
+        phone_list = []  # List to hold all extracted phone numbers with +1 extension
         
         # Create separate in-memory ZIPs:
         # 1. For renamed PDF files.
@@ -131,6 +132,11 @@ def upload_files():
                     
                     lastname, birth_year, full_phone = extract_info_from_pdf(pdf_stream)
                     if lastname and birth_year and full_phone:
+                        # Add +1 prefix to the phone number
+                        phone_with_ext = "+1" + full_phone
+                        # Append to our list of extracted phone numbers
+                        phone_list.append(phone_with_ext)
+                        
                         new_filename = f"{lastname.lower()}_{birth_year}_{full_phone}.pdf"
                         msg = f"Renaming file to: {new_filename}"
                         print(msg)
@@ -149,11 +155,23 @@ def upload_files():
             log_zip.writestr("log_report.txt", log_report)
         log_memory.seek(0)
 
-        # 3. Create a combined ZIP file that contains both the renamed PDFs ZIP and the log ZIP.
+        # 3. For the phone numbers file
+        phone_memory = io.BytesIO()
+        with zipfile.ZipFile(phone_memory, 'w', zipfile.ZIP_DEFLATED) as phone_zip:
+            # Write each phone number on a new line
+            phone_report = "\n".join(phone_list)
+            phone_zip.writestr("phone_numbers.txt", phone_report)
+        phone_memory.seek(0)
+
+        # 4. Create a combined ZIP file that contains:
+        #    - renamed PDFs ZIP
+        #    - log ZIP
+        #    - phone numbers ZIP
         combined_memory = io.BytesIO()
         with zipfile.ZipFile(combined_memory, 'w', zipfile.ZIP_DEFLATED) as combined_zip:
             combined_zip.writestr("renamed_pdfs.zip", pdf_memory.getvalue())
             combined_zip.writestr("log_report.zip", log_memory.getvalue())
+            combined_zip.writestr("phone_numbers.zip", phone_memory.getvalue())
         combined_memory.seek(0)
 
         return send_file(combined_memory, download_name="combined_files.zip", as_attachment=True)
